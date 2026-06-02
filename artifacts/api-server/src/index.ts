@@ -26,6 +26,16 @@ app.listen(port, host, (err) => {
 
   logger.info({ port, host }, "Server listening");
 
+  const loopbackHosts = new Set(["127.0.0.1", "::1", "localhost"]);
+  if (!loopbackHosts.has(host)) {
+    logger.warn(
+      { host },
+      "Management API is bound to a non-loopback address and has no authentication. " +
+        "This exposes server management (commands, secrets) to other hosts on the network. " +
+        "Bind to 127.0.0.1 unless you intentionally need remote access.",
+    );
+  }
+
   resumeServers().catch((resumeErr) => {
     logger.error({ err: resumeErr }, "Failed to resume servers on startup");
   });

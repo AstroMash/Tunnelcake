@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { EnvVarDialog } from "./environment";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function ServerDetail() {
@@ -90,6 +91,13 @@ export function ServerDetail() {
               status.tunnelHealth !== "unknown" && (
                 <TunnelHealthBadge health={status.tunnelHealth} />
               )}
+            <EditServerDialog
+              serverId={id}
+              name={server.name}
+              command={server.command}
+              args={server.args ?? []}
+              disabled={isRunning || isStarting}
+            />
           </h1>
           <p className="text-sm font-mono text-muted-foreground mt-2">
             {server.command} {server.args?.join(" ")}
@@ -428,6 +436,129 @@ function ServerEnvVars({ serverId }: { serverId: number }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function EditServerDialog({
+  serverId,
+  name,
+  command,
+  args,
+  disabled,
+}: {
+  serverId: number;
+  name: string;
+  command: string;
+  args: string[];
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [nameValue, setNameValue] = useState(name);
+  const [commandValue, setCommandValue] = useState(command);
+  const [argsValue, setArgsValue] = useState(args.join(" "));
+  const updateMutation = useUpdateServer();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      setNameValue(name);
+      setCommandValue(command);
+      setArgsValue(args.join(" "));
+    }
+  }, [open, name, command, args]);
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nameValue.trim() || !commandValue.trim()) return;
+    updateMutation.mutate(
+      {
+        id: serverId,
+        data: {
+          name: nameValue.trim(),
+          command: commandValue.trim(),
+          args: argsValue.trim() ? argsValue.trim().split(/\s+/) : [],
+        },
+      },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getGetServerQueryKey(serverId) });
+          queryClient.invalidateQueries({ queryKey: getListServersQueryKey() });
+          toast({ title: "Server updated" });
+          setOpen(false);
+        },
+        onError: () => {
+          toast({ title: "Failed to update server", variant: "destructive" });
+        },
+      },
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={disabled}
+          title={disabled ? "Stop the server to edit" : "Edit server"}
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Edit className="w-4 h-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Server</DialogTitle>
+          <DialogDescription>
+            Update the name, command, and arguments for this MCP server.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Name</Label>
+            <Input
+              id="edit-name"
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              placeholder="e.g. My MCP Server"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-command">Command</Label>
+            <Input
+              id="edit-command"
+              value={commandValue}
+              onChange={(e) => setCommandValue(e.target.value)}
+              placeholder="e.g. uvx"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-args">Args (space separated)</Label>
+            <Input
+              id="edit-args"
+              value={argsValue}
+              onChange={(e) => setArgsValue(e.target.value)}
+              placeholder="e.g. mcp-pfsense"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="submit"
+              disabled={
+                updateMutation.isPending ||
+                !nameValue.trim() ||
+                !commandValue.trim()
+              }
+            >
+              {updateMutation.isPending ? "Saving..." : "Save changes"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
