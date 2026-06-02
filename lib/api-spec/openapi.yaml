@@ -214,6 +214,69 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /servers/{id}/sse:
+    get:
+      operationId: openServerSse
+      tags: [process]
+      summary: MCP-over-SSE passthrough stream for a server
+      description: >
+        Server-Sent Events stream bridging a running stdio MCP server to an MCP
+        client (e.g. ChatGPT). Requires the per-server bearer token. Rate limited.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Server is not running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /servers/{id}/messages:
+    post:
+      operationId: postServerMessage
+      tags: [process]
+      summary: Post an MCP message into a server's active SSE session
+      description: >
+        Inbound channel for MCP-over-SSE. The client posts JSON-RPC messages
+        here; they are forwarded to the running stdio process. Requires the
+        per-server bearer token. Rate limited.
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/McpMessage"
+      responses:
+        "202":
+          description: Message accepted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: No active SSE session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
   /servers/{id}/tunnel:
     get:
       operationId: getTunnelConfig
@@ -364,6 +427,10 @@ paths:
           $ref: "#/components/responses/NotFound"
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
   parameters:
     ServerId:
       name: id
@@ -390,7 +457,23 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
+    McpMessage:
+      type: object
+      description: An MCP JSON-RPC message payload
+      additionalProperties: true
     HealthStatus:
       type: object
       properties:

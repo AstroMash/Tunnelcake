@@ -25,9 +25,11 @@ import type {
   EnvVarInput,
   EnvVarUpdate,
   EnvironmentInfo,
+  Error,
   HealthStatus,
   ListEnvVarsParams,
   LogBundle,
+  McpMessage,
   NgrokConfig,
   NgrokConfigInput,
   NotFoundResponse,
@@ -36,8 +38,10 @@ import type {
   ServerInput,
   ServerUpdate,
   Summary,
+  TooManyRequestsResponse,
   TunnelConfig,
-  TunnelConfigInput
+  TunnelConfigInput,
+  UnauthorizedResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -946,6 +950,159 @@ export function useGetServerLogs<TData = Awaited<ReturnType<typeof getServerLogs
 
 
 
+
+export const getOpenServerSseUrl = (id: number,) => {
+
+
+
+
+  return `/api/servers/${id}/sse`
+}
+
+/**
+ * Server-Sent Events stream bridging a running stdio MCP server to an MCP client (e.g. ChatGPT). Requires the per-server bearer token. Rate limited.
+
+ * @summary MCP-over-SSE passthrough stream for a server
+ */
+export const openServerSse = async (id: number, options?: RequestInit): Promise<string> => {
+
+  return customFetch<string>(getOpenServerSseUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getOpenServerSseQueryKey = (id: number,) => {
+    return [
+    `/api/servers/${id}/sse`
+    ] as const;
+    }
+
+
+export const getOpenServerSseQueryOptions = <TData = Awaited<ReturnType<typeof openServerSse>>, TError = ErrorType<UnauthorizedResponse | Error | TooManyRequestsResponse>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof openServerSse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getOpenServerSseQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof openServerSse>>> = ({ signal }) => openServerSse(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof openServerSse>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type OpenServerSseQueryResult = NonNullable<Awaited<ReturnType<typeof openServerSse>>>
+export type OpenServerSseQueryError = ErrorType<UnauthorizedResponse | Error | TooManyRequestsResponse>
+
+
+/**
+ * @summary MCP-over-SSE passthrough stream for a server
+ */
+
+export function useOpenServerSse<TData = Awaited<ReturnType<typeof openServerSse>>, TError = ErrorType<UnauthorizedResponse | Error | TooManyRequestsResponse>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof openServerSse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getOpenServerSseQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getPostServerMessageUrl = (id: number,) => {
+
+
+
+
+  return `/api/servers/${id}/messages`
+}
+
+/**
+ * Inbound channel for MCP-over-SSE. The client posts JSON-RPC messages here; they are forwarded to the running stdio process. Requires the per-server bearer token. Rate limited.
+
+ * @summary Post an MCP message into a server's active SSE session
+ */
+export const postServerMessage = async (id: number,
+    mcpMessage: McpMessage, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getPostServerMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      mcpMessage,)
+  }
+);}
+
+
+
+
+export const getPostServerMessageMutationOptions = <TError = ErrorType<UnauthorizedResponse | Error | TooManyRequestsResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServerMessage>>, TError,{id: number;data: BodyType<McpMessage>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postServerMessage>>, TError,{id: number;data: BodyType<McpMessage>}, TContext> => {
+
+const mutationKey = ['postServerMessage'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postServerMessage>>, {id: number;data: BodyType<McpMessage>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  postServerMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostServerMessageMutationResult = NonNullable<Awaited<ReturnType<typeof postServerMessage>>>
+    export type PostServerMessageMutationBody = BodyType<McpMessage>
+    export type PostServerMessageMutationError = ErrorType<UnauthorizedResponse | Error | TooManyRequestsResponse>
+
+    /**
+ * @summary Post an MCP message into a server's active SSE session
+ */
+export const usePostServerMessage = <TError = ErrorType<UnauthorizedResponse | Error | TooManyRequestsResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postServerMessage>>, TError,{id: number;data: BodyType<McpMessage>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postServerMessage>>,
+        TError,
+        {id: number;data: BodyType<McpMessage>},
+        TContext
+      > => {
+      return useMutation(getPostServerMessageMutationOptions(options));
+    }
 
 export const getGetTunnelConfigUrl = (id: number,) => {
 

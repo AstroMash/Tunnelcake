@@ -17,7 +17,7 @@ Process/tunnel lifecycle lives in an in-memory runtimes map in `manager.ts`, sep
 **Why:** otherwise a running child process / ngrok listener / SSE bridge is orphaned (still alive in memory), and the process routes guard on `serverExists`, so the orphan can never be stopped via API.
 
 ## Secret handling
-AES-256-GCM (per-secret random IV) via `MCP_MASTER_KEY` shared env var encrypts tunnel API key, ngrok auth token, and env-var values at rest. Config GET endpoints expose only booleans (`hasApiKey`, `hasAuthToken`), never the plaintext secret. The ngrok **bearer token IS returned plaintext intentionally** — the user pastes it into ChatGPT as the connector's auth token.
+AES-256-GCM (per-secret random IV) encrypts tunnel API key, ngrok auth token, and env-var values at rest. The master key resolves as: `MCP_MASTER_KEY` env var if set, otherwise an auto-generated 32-byte key persisted to `~/.mcp-server-manager/master.key` (chmod 0600). Never hardcode the master key in tracked config (`.replit`/source) — that defeats encryption at rest. Config GET endpoints expose only booleans (`hasApiKey`, `hasAuthToken`), never the plaintext secret. The ngrok **bearer token IS returned plaintext intentionally** — the user pastes it into ChatGPT as the connector's auth token, and the same token gates the public SSE/messages endpoints via constant-time `requireServerBearer`.
 
 ## Generated TanStack Query hooks require `queryKey`
 Every `useXxx(..., { query: {...} })` call must include `queryKey: getXxxQueryKey(args)` or it fails typecheck. Sync async query data into form state with `useEffect([data])`, never `useState(() => ...)` (the initializer runs once before data arrives and never re-syncs). Don't pass both `value` and `defaultValue` to a controlled Input.

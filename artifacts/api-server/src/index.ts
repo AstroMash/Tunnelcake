@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { resumeServers } from "./lib/manager";
 
 const rawPort = process.env["PORT"];
 
@@ -24,4 +25,8 @@ app.listen(port, host, (err) => {
   }
 
   logger.info({ port, host }, "Server listening");
+
+  resumeServers().catch((resumeErr) => {
+    logger.error({ err: resumeErr }, "Failed to resume servers on startup");
+  });
 });

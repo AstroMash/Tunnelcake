@@ -5,6 +5,7 @@ import envVarsRouter from "./envVars";
 import connectionRouter from "./connection";
 import processRouter from "./process";
 import dashboardRouter from "./dashboard";
+import sseRouter from "./sse";
 
 const router: IRouter = Router();
 
@@ -13,6 +14,7 @@ router.use(dashboardRouter);
 router.use(serversRouter);
 router.use(connectionRouter);
 router.use(processRouter);
+router.use(sseRouter);
 router.use(envVarsRouter);
 
 export default router;

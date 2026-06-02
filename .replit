@@ -35,7 +35,6 @@ externalPort = 3000
 [userenv]
 
 [userenv.shared]
-MCP_MASTER_KEY = "c4424daa0af06b5b2e213249282973484585000afc1463a27dfde4e9eb8f0fbc"
 
 [nix]
 channel = "stable-25_05"

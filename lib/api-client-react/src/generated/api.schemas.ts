@@ -5,6 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+/**
+ * An MCP JSON-RPC message payload
+ */
+export interface McpMessage { [key: string]: unknown }
+
 export interface HealthStatus {
   status: string;
 }
@@ -192,6 +197,16 @@ export type NotFoundResponse = Error;
  * Invalid request
  */
 export type BadRequestResponse = Error;
+
+/**
+ * Missing or invalid bearer token
+ */
+export type UnauthorizedResponse = Error;
+
+/**
+ * Rate limit exceeded
+ */
+export type TooManyRequestsResponse = Error;
 
 export type ListEnvVarsParams = {
 serverId?: number;

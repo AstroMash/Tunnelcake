@@ -217,6 +217,28 @@ export const GetServerLogsResponse = zod.object({
 
 
 /**
+ * Server-Sent Events stream bridging a running stdio MCP server to an MCP client (e.g. ChatGPT). Requires the per-server bearer token. Rate limited.
+
+ * @summary MCP-over-SSE passthrough stream for a server
+ */
+export const OpenServerSseParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * Inbound channel for MCP-over-SSE. The client posts JSON-RPC messages here; they are forwarded to the running stdio process. Requires the per-server bearer token. Rate limited.
+
+ * @summary Post an MCP message into a server's active SSE session
+ */
+export const PostServerMessageParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const PostServerMessageBody = zod.record(zod.string(), zod.unknown()).describe('An MCP JSON-RPC message payload')
+
+
+/**
  * @summary Get tunnel-client config for a server
  */
 export const GetTunnelConfigParams = zod.object({

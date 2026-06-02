@@ -1,10 +1,11 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { createServer, type Server as HttpServer } from "node:http";
-import { writeFile, mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { spawn, execFile, type ChildProcess } from "node:child_process";
+import { type Server as HttpServer } from "node:http";
+import { writeFile, mkdir, chmod } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { tmpdir, homedir } from "node:os";
 import path from "node:path";
-import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import express from "express";
 import yaml from "js-yaml";
 import { eq, isNull } from "drizzle-orm";
 import {
@@ -14,7 +15,12 @@ import {
   tunnelConfigsTable,
   ngrokConfigsTable,
 } from "@workspace/db";
+import type { Request, Response, NextFunction } from "express";
+import type { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { decryptSecret } from "./crypto";
+import { requireServerBearer, type SseRequest } from "./sseAuth";
+import { createRateLimiter } from "./rateLimit";
 import { logger } from "./logger";
 
 const execFileAsync = promisify(execFile);
@@ -42,7 +48,8 @@ interface Runtime {
   child: ChildProcess | null;
   bridge: HttpServer | null;
   ngrokListener: { close: () => Promise<void> } | null;
-  stdioTransport: { close: () => Promise<void> } | null;
+  stdioTransport: StdioClientTransport | null;
+  activeSse: SSEServerTransport | null;
 }
 
 const MAX_LOGS = 500;
@@ -66,6 +73,7 @@ export function getRuntime(serverId: number): Runtime {
       bridge: null,
       ngrokListener: null,
       stdioTransport: null,
+      activeSse: null,
     };
     runtimes.set(serverId, rt);
   }
@@ -121,10 +129,71 @@ async function findExecutable(name: string): Promise<string | null> {
   }
 }
 
+function dataDir(): string {
+  return (
+    process.env["MCP_DATA_DIR"] ?? path.join(homedir(), ".mcp-server-manager")
+  );
+}
+
+function tunnelClientCacheDir(): string {
+  return path.join(dataDir(), "bin");
+}
+
+function tunnelClientCachePath(): string {
+  return path.join(tunnelClientCacheDir(), "tunnel-client");
+}
+
 export async function getTunnelClientPath(): Promise<string | null> {
   const configured = process.env["TUNNEL_CLIENT_PATH"];
   if (configured) return configured;
-  return findExecutable("tunnel-client");
+  const onPath = await findExecutable("tunnel-client");
+  if (onPath) return onPath;
+  const cached = tunnelClientCachePath();
+  if (existsSync(cached)) return cached;
+  return null;
+}
+
+// Resolve the download URL for the current OS/arch. The release base is
+// configurable to avoid hardcoding an unverified URL; an explicit full URL
+// always wins.
+function tunnelClientDownloadUrl(): string | null {
+  const explicit = process.env["TUNNEL_CLIENT_DOWNLOAD_URL"];
+  if (explicit) return explicit;
+  const base = process.env["TUNNEL_CLIENT_RELEASE_BASE"];
+  if (!base) return null;
+  const platform = process.platform;
+  if (platform !== "linux" && platform !== "darwin") return null;
+  const osPart = platform === "darwin" ? "darwin" : "linux";
+  const archPart = process.arch === "arm64" ? "arm64" : "amd64";
+  return `${base.replace(/\/$/, "")}/tunnel-client-${osPart}-${archPart}`;
+}
+
+// Ensure the tunnel-client binary is available. Resolution order: configured
+// path / PATH / cache; otherwise download the OS-specific binary on first use
+// and cache it with executable permissions.
+export async function ensureTunnelClient(
+  onLog?: (message: string) => void,
+): Promise<string | null> {
+  const existing = await getTunnelClientPath();
+  if (existing) return existing;
+
+  const url = tunnelClientDownloadUrl();
+  if (!url) return null;
+
+  const dest = tunnelClientCachePath();
+  onLog?.(`Downloading tunnel-client from ${url}`);
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(
+      `Failed to download tunnel-client: HTTP ${res.status} ${res.statusText}`,
+    );
+  }
+  const buf = Buffer.from(await res.arrayBuffer());
+  await mkdir(tunnelClientCacheDir(), { recursive: true });
+  await writeFile(dest, buf);
+  await chmod(dest, 0o755);
+  onLog?.(`Cached tunnel-client at ${dest}`);
+  return dest;
 }
 
 export async function getTunnelClientVersion(): Promise<string | null> {
@@ -215,10 +284,10 @@ async function startTunnel(
       "Tunnel mode requires a tunnel configuration. Add your tunnel ID and API key first.",
     );
   }
-  const bin = await getTunnelClientPath();
+  const bin = await ensureTunnelClient((m) => appendLog(rt, "system", m));
   if (!bin) {
     throw new Error(
-      "tunnel-client binary not found. Install the OpenAI Secure MCP Tunnel client and ensure it is on PATH or set TUNNEL_CLIENT_PATH.",
+      "tunnel-client binary not found. Install the OpenAI Secure MCP Tunnel client on PATH, set TUNNEL_CLIENT_PATH, or configure TUNNEL_CLIENT_DOWNLOAD_URL / TUNNEL_CLIENT_RELEASE_BASE to download it automatically.",
     );
   }
   const apiKey = tunnel.apiKey ? decryptSecret(tunnel.apiKey) : "";
@@ -297,6 +366,10 @@ async function startNgrok(
   }
   const bearerToken = ngrokCfg.bearerToken;
 
+  if (!bearerToken) {
+    throw new Error("ngrok configuration is incomplete (missing bearer token).");
+  }
+
   let ngrok: typeof import("@ngrok/ngrok");
   try {
     ngrok = await import("@ngrok/ngrok");
@@ -304,92 +377,22 @@ async function startNgrok(
     throw new Error("The @ngrok/ngrok package is not available in this environment.");
   }
 
-  const { StdioClientTransport } = await import(
-    "@modelcontextprotocol/sdk/client/stdio.js"
-  );
-  const { SSEServerTransport } = await import(
-    "@modelcontextprotocol/sdk/server/sse.js"
-  );
+  await startStdio(rt, command, args, env);
 
-  const stdioTransport = new StdioClientTransport({
-    command,
-    args,
-    env: { ...env },
-    stderr: "pipe",
-  });
-
-  let activeSse: InstanceType<typeof SSEServerTransport> | null = null;
-
-  stdioTransport.onmessage = (msg) => {
-    activeSse?.send(msg).catch((err) => {
-      appendLog(rt, "system", `SSE send failed: ${String(err)}`);
-    });
-  };
-  stdioTransport.onerror = (err) => {
-    appendLog(rt, "stderr", `stdio transport error: ${String(err)}`);
-  };
-  stdioTransport.onclose = () => {
-    appendLog(rt, "system", "stdio transport closed");
-  };
-
-  await stdioTransport.start();
-  rt.stdioTransport = stdioTransport;
-  rt.pid = stdioTransport.pid ?? null;
-  const stderrStream = stdioTransport.stderr;
-  stderrStream?.on("data", (d: Buffer) => appendLog(rt, "stderr", d.toString()));
-
-  const bridge = createServer(async (req, res) => {
-    const url = new URL(req.url ?? "/", "http://localhost");
-    const auth = req.headers["authorization"];
-    const expected = `Bearer ${bearerToken}`;
-    if (auth !== expected) {
-      res.writeHead(401, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
-      appendLog(rt, "system", "Rejected unauthorized request");
-      return;
-    }
-
-    if (req.method === "GET" && url.pathname === "/sse") {
-      const sse = new SSEServerTransport("/messages", res);
-      activeSse = sse;
-      sse.onmessage = (msg) => {
-        stdioTransport.send(msg).catch((err) => {
-          appendLog(rt, "system", `stdio send failed: ${String(err)}`);
-        });
-      };
-      sse.onclose = () => {
-        if (activeSse === sse) activeSse = null;
-        appendLog(rt, "system", "SSE client disconnected");
-      };
-      await sse.start();
-      appendLog(rt, "system", "SSE client connected");
-      return;
-    }
-
-    if (req.method === "POST" && url.pathname === "/messages") {
-      if (!activeSse) {
-        res.writeHead(409, { "content-type": "application/json" });
-        res.end(JSON.stringify({ error: "No active SSE session" }));
-        return;
-      }
-      await activeSse.handlePostMessage(req, res);
-      return;
-    }
-
-    res.writeHead(404, { "content-type": "application/json" });
-    res.end(JSON.stringify({ error: "Not found" }));
-  });
-
-  const internalPort: number = await new Promise((resolve, reject) => {
-    bridge.on("error", reject);
-    bridge.listen(0, "127.0.0.1", () => {
-      const addr = bridge.address();
+  // Dedicated SSE-only HTTP server that ngrok forwards to. It mounts ONLY the
+  // SSE passthrough routes (same handlers as the documented /api endpoints), so
+  // the management API — which can return decrypted secrets — is never exposed
+  // publicly through the tunnel.
+  const internalPort = await new Promise<number>((resolve, reject) => {
+    const server = sseOnlyApp(rt.serverId).listen(0, "127.0.0.1", () => {
+      const addr = server.address();
       if (addr && typeof addr === "object") resolve(addr.port);
-      else reject(new Error("Failed to bind bridge port"));
+      else reject(new Error("Failed to bind SSE server port"));
     });
+    server.on("error", reject);
+    rt.bridge = server;
   });
-  rt.bridge = bridge;
-  appendLog(rt, "system", `SSE bridge listening on 127.0.0.1:${internalPort}`);
+  appendLog(rt, "system", `SSE server listening on 127.0.0.1:${internalPort}`);
 
   const listener = await ngrok.forward({
     addr: internalPort,
@@ -402,7 +405,7 @@ async function startNgrok(
     throw new Error("ngrok did not return a public URL.");
   }
   rt.publicUrl = publicUrl;
-  rt.connectorUrl = `${publicBaseFromUrl(publicUrl)}/sse`;
+  rt.connectorUrl = `${publicBaseFromUrl(publicUrl)}/api/servers/${rt.serverId}/sse`;
   rt.bearerToken = bearerToken;
 
   // Persist the resolved public URL.
@@ -413,6 +416,139 @@ async function startNgrok(
 
   appendLog(rt, "system", `ngrok public URL: ${publicUrl}`);
   rt.state = "running";
+}
+
+// Spawn the stdio MCP process and keep its transport on the runtime. Messages
+// from the process are forwarded to whichever SSE session is currently active.
+async function startStdio(
+  rt: Runtime,
+  command: string,
+  args: string[],
+  env: Record<string, string>,
+): Promise<void> {
+  const { StdioClientTransport } = await import(
+    "@modelcontextprotocol/sdk/client/stdio.js"
+  );
+  const stdioTransport = new StdioClientTransport({
+    command,
+    args,
+    env: { ...env },
+    stderr: "pipe",
+  });
+  stdioTransport.onmessage = (msg) => {
+    rt.activeSse?.send(msg).catch((err) => {
+      appendLog(rt, "system", `SSE send failed: ${String(err)}`);
+    });
+  };
+  stdioTransport.onerror = (err) => {
+    appendLog(rt, "stderr", `stdio transport error: ${String(err)}`);
+  };
+  stdioTransport.onclose = () => {
+    appendLog(rt, "system", "stdio transport closed");
+  };
+  await stdioTransport.start();
+  rt.stdioTransport = stdioTransport;
+  rt.pid = stdioTransport.pid ?? null;
+  stdioTransport.stderr?.on("data", (d: Buffer) =>
+    appendLog(rt, "stderr", d.toString()),
+  );
+}
+
+const sseLimiter = createRateLimiter({ windowMs: 60_000, max: 120 });
+
+// Build a minimal Express app that exposes ONLY this server's SSE passthrough
+// routes, for ngrok to forward to. Reuses the shared bearer-auth + rate-limit.
+function sseOnlyApp(serverId: number): express.Express {
+  const app = express();
+  app.use(express.json());
+  const onlyThisServer = (req: Request, res: Response, next: NextFunction) => {
+    if (Number(req.params["id"]) !== serverId) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    next();
+  };
+  app.get(
+    "/api/servers/:id/sse",
+    onlyThisServer,
+    sseLimiter,
+    requireServerBearer,
+    async (req, res) => {
+      await openSseSession((req as SseRequest).serverId as number, res);
+    },
+  );
+  app.post(
+    "/api/servers/:id/messages",
+    onlyThisServer,
+    sseLimiter,
+    requireServerBearer,
+    async (req, res) => {
+      await postSseMessage((req as SseRequest).serverId as number, req, res);
+    },
+  );
+  return app;
+}
+
+// Attach a new SSE session to a running server's stdio process.
+export async function openSseSession(
+  serverId: number,
+  res: Response,
+): Promise<void> {
+  const rt = getRuntime(serverId);
+  if (!rt.stdioTransport || rt.state !== "running") {
+    res.status(409).json({ error: "Server is not running" });
+    return;
+  }
+  const { SSEServerTransport } = await import(
+    "@modelcontextprotocol/sdk/server/sse.js"
+  );
+  const sse = new SSEServerTransport(`/api/servers/${serverId}/messages`, res);
+  rt.activeSse = sse;
+  sse.onmessage = (msg) => {
+    rt.stdioTransport?.send(msg).catch((err) => {
+      appendLog(rt, "system", `stdio send failed: ${String(err)}`);
+    });
+  };
+  sse.onclose = () => {
+    if (rt.activeSse === sse) rt.activeSse = null;
+    appendLog(rt, "system", "SSE client disconnected");
+  };
+  await sse.start();
+  appendLog(rt, "system", "SSE client connected");
+}
+
+export async function postSseMessage(
+  serverId: number,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const rt = getRuntime(serverId);
+  if (!rt.activeSse) {
+    res.status(409).json({ error: "No active SSE session" });
+    return;
+  }
+  await rt.activeSse.handlePostMessage(req, res, req.body);
+}
+
+async function setRunningFlag(serverId: number, running: boolean): Promise<void> {
+  await db
+    .update(serversTable)
+    .set({ running })
+    .where(eq(serversTable.id, serverId));
+}
+
+// On boot, resume any servers that were running when the app last stopped.
+export async function resumeServers(): Promise<void> {
+  const rows = await db
+    .select()
+    .from(serversTable)
+    .where(eq(serversTable.running, true));
+  for (const s of rows) {
+    appendLog(getRuntime(s.id), "system", "Resuming on startup");
+    await startServer(s.id).catch((err) => {
+      logger.error({ err, serverId: s.id }, "Failed to resume server");
+    });
+  }
 }
 
 export async function startServer(serverId: number) {
@@ -455,6 +591,9 @@ export async function startServer(serverId: number) {
     rt.state = "error";
   }
 
+  // Persist intent so the server can be resumed on next startup.
+  const isRunning = getRuntime(serverId).state === "running";
+  await setRunningFlag(serverId, isRunning).catch(() => undefined);
   return serializeRuntime(rt);
 }
 
@@ -462,7 +601,16 @@ export async function stopServer(serverId: number) {
   const rt = getRuntime(serverId);
   rt.state = "stopped";
   appendLog(rt, "system", "Stopping server");
+  await setRunningFlag(serverId, false).catch(() => undefined);
 
+  if (rt.activeSse) {
+    try {
+      await rt.activeSse.close();
+    } catch {
+      /* ignore */
+    }
+    rt.activeSse = null;
+  }
   if (rt.ngrokListener) {
     try {
       await rt.ngrokListener.close();

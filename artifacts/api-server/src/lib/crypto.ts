@@ -1,23 +1,55 @@
 import crypto from "node:crypto";
+import {
+  existsSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  chmodSync,
+} from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
 
 const ALGO = "aes-256-gcm";
 
 let cachedKey: Buffer | null = null;
 
+function deriveKey(raw: string): Buffer {
+  // Accept a 64-char hex key directly; otherwise derive a 32-byte key.
+  return /^[0-9a-fA-F]{64}$/.test(raw)
+    ? Buffer.from(raw, "hex")
+    : crypto.createHash("sha256").update(raw).digest();
+}
+
+function keyFilePath(): string {
+  const dir =
+    process.env["MCP_DATA_DIR"] ??
+    path.join(homedir(), ".mcp-server-manager");
+  return path.join(dir, "master.key");
+}
+
+// When no MCP_MASTER_KEY env var is provided, the key is generated once and
+// persisted to a local, non-source-controlled file with owner-only perms.
+// This keeps the encryption-at-rest key out of any tracked config.
+function loadOrCreateKeyFile(): Buffer {
+  const file = keyFilePath();
+  if (existsSync(file)) {
+    return deriveKey(readFileSync(file, "utf8").trim());
+  }
+  const key = crypto.randomBytes(32);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, key.toString("hex"), { mode: 0o600 });
+  try {
+    chmodSync(file, 0o600);
+  } catch {
+    /* best effort on platforms without POSIX perms */
+  }
+  return key;
+}
+
 function getKey(): Buffer {
   if (cachedKey) return cachedKey;
   const raw = process.env["MCP_MASTER_KEY"];
-  if (!raw) {
-    throw new Error(
-      "MCP_MASTER_KEY is not set. Secrets cannot be encrypted or decrypted.",
-    );
-  }
-  // Accept a 64-char hex key directly; otherwise derive a 32-byte key.
-  if (/^[0-9a-fA-F]{64}$/.test(raw)) {
-    cachedKey = Buffer.from(raw, "hex");
-  } else {
-    cachedKey = crypto.createHash("sha256").update(raw).digest();
-  }
+  cachedKey = raw ? deriveKey(raw) : loadOrCreateKeyFile();
   return cachedKey;
 }
 
@@ -65,4 +97,11 @@ export function isEncrypted(value: string): boolean {
 
 export function generateBearerToken(): string {
   return crypto.randomBytes(24).toString("base64url");
+}
+
+export function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ab, bb);
 }
