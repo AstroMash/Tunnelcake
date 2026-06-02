@@ -1,0 +1,1 @@
+- [MCP Manager architecture](mcp-server-manager.md) — full-stack tool to manage stdio MCP servers + expose to ChatGPT via OpenAI tunnel or ngrok SSE; security & wiring gotchas.

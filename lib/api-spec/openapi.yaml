@@ -10,6 +10,16 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: servers
+    description: MCP server management
+  - name: env
+    description: Environment variable management
+  - name: connection
+    description: Tunnel and ngrok connection configuration
+  - name: process
+    description: Process lifecycle control
+  - name: dashboard
+    description: Dashboard summaries
 paths:
   /healthz:
     get:
@@ -24,7 +34,362 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /summary:
+    get:
+      operationId: getSummary
+      tags: [dashboard]
+      summary: Dashboard summary
+      description: Aggregate counts and status across all MCP servers
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Summary"
+
+  /environment:
+    get:
+      operationId: getEnvironmentInfo
+      tags: [dashboard]
+      summary: Runtime environment info
+      description: Host security posture and tunnel-client binary availability
+      responses:
+        "200":
+          description: Environment info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvironmentInfo"
+
+  /servers:
+    get:
+      operationId: listServers
+      tags: [servers]
+      summary: List MCP servers
+      responses:
+        "200":
+          description: A list of MCP servers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Server"
+    post:
+      operationId: createServer
+      tags: [servers]
+      summary: Create an MCP server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Server"
+
+  /servers/{id}:
+    get:
+      operationId: getServer
+      tags: [servers]
+      summary: Get an MCP server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: The MCP server
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Server"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateServer
+      tags: [servers]
+      summary: Update an MCP server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServerUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Server"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteServer
+      tags: [servers]
+      summary: Delete an MCP server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /servers/{id}/start:
+    post:
+      operationId: startServer
+      tags: [process]
+      summary: Start an MCP server process and its connection
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: Runtime status after start
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeStatus"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /servers/{id}/stop:
+    post:
+      operationId: stopServer
+      tags: [process]
+      summary: Stop an MCP server process and its connection
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: Runtime status after stop
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /servers/{id}/status:
+    get:
+      operationId: getServerStatus
+      tags: [process]
+      summary: Get the runtime status of a server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: Runtime status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuntimeStatus"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /servers/{id}/logs:
+    get:
+      operationId: getServerLogs
+      tags: [process]
+      summary: Get recent log lines for a server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: Recent log lines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogBundle"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /servers/{id}/tunnel:
+    get:
+      operationId: getTunnelConfig
+      tags: [connection]
+      summary: Get tunnel-client config for a server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: Tunnel config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TunnelConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: setTunnelConfig
+      tags: [connection]
+      summary: Set tunnel-client config for a server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TunnelConfigInput"
+      responses:
+        "200":
+          description: Saved tunnel config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TunnelConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /servers/{id}/ngrok:
+    get:
+      operationId: getNgrokConfig
+      tags: [connection]
+      summary: Get ngrok config for a server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      responses:
+        "200":
+          description: Ngrok config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NgrokConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: setNgrokConfig
+      tags: [connection]
+      summary: Set ngrok config for a server
+      parameters:
+        - $ref: "#/components/parameters/ServerId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NgrokConfigInput"
+      responses:
+        "200":
+          description: Saved ngrok config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NgrokConfig"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /env-vars:
+    get:
+      operationId: listEnvVars
+      tags: [env]
+      summary: List environment variables
+      description: Returns global env vars when serverId is omitted, otherwise vars for the given server
+      parameters:
+        - name: serverId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: A list of environment variables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EnvVar"
+    post:
+      operationId: createEnvVar
+      tags: [env]
+      summary: Create an environment variable
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnvVarInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvVar"
+
+  /env-vars/{id}:
+    patch:
+      operationId: updateEnvVar
+      tags: [env]
+      summary: Update an environment variable
+      parameters:
+        - $ref: "#/components/parameters/EnvVarId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnvVarUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnvVar"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteEnvVar
+      tags: [env]
+      summary: Delete an environment variable
+      parameters:
+        - $ref: "#/components/parameters/EnvVarId"
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+
 components:
+  parameters:
+    ServerId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+    EnvVarId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +399,284 @@ components:
       required:
         - status
 
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ConnectionMode:
+      type: string
+      enum: [none, tunnel, ngrok]
+
+    ProcessState:
+      type: string
+      enum: [stopped, starting, running, error]
+
+    Server:
+      type: object
+      required:
+        - id
+        - name
+        - command
+        - args
+        - connectionMode
+        - state
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        connectionMode:
+          $ref: "#/components/schemas/ConnectionMode"
+        state:
+          $ref: "#/components/schemas/ProcessState"
+        publicUrl:
+          type: ["string", "null"]
+        lastError:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    ServerInput:
+      type: object
+      required:
+        - name
+        - command
+      properties:
+        name:
+          type: string
+          minLength: 1
+        command:
+          type: string
+          minLength: 1
+        args:
+          type: array
+          items:
+            type: string
+        connectionMode:
+          $ref: "#/components/schemas/ConnectionMode"
+
+    ServerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        command:
+          type: string
+          minLength: 1
+        args:
+          type: array
+          items:
+            type: string
+        connectionMode:
+          $ref: "#/components/schemas/ConnectionMode"
+
+    EnvVar:
+      type: object
+      required:
+        - id
+        - key
+        - value
+        - scope
+      properties:
+        id:
+          type: integer
+        serverId:
+          type: ["integer", "null"]
+        scope:
+          type: string
+          enum: [global, server]
+        key:
+          type: string
+        value:
+          type: string
+
+    EnvVarInput:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        serverId:
+          type: ["integer", "null"]
+        key:
+          type: string
+          minLength: 1
+        value:
+          type: string
+
+    EnvVarUpdate:
+      type: object
+      properties:
+        key:
+          type: string
+          minLength: 1
+        value:
+          type: string
+
+    TunnelConfig:
+      type: object
+      required:
+        - serverId
+        - tunnelId
+        - hasApiKey
+      properties:
+        serverId:
+          type: integer
+        tunnelId:
+          type: string
+        hasApiKey:
+          type: boolean
+        uiUrl:
+          type: ["string", "null"]
+
+    TunnelConfigInput:
+      type: object
+      required:
+        - tunnelId
+      properties:
+        tunnelId:
+          type: string
+          minLength: 1
+        apiKey:
+          type: string
+
+    NgrokConfig:
+      type: object
+      required:
+        - serverId
+        - hasAuthToken
+        - bearerToken
+      properties:
+        serverId:
+          type: integer
+        hasAuthToken:
+          type: boolean
+        bearerToken:
+          type: string
+        domain:
+          type: ["string", "null"]
+        publicUrl:
+          type: ["string", "null"]
+
+    NgrokConfigInput:
+      type: object
+      properties:
+        authToken:
+          type: string
+        domain:
+          type: string
+        rotateBearerToken:
+          type: boolean
+
+    RuntimeStatus:
+      type: object
+      required:
+        - serverId
+        - state
+        - connectionMode
+      properties:
+        serverId:
+          type: integer
+        state:
+          $ref: "#/components/schemas/ProcessState"
+        connectionMode:
+          $ref: "#/components/schemas/ConnectionMode"
+        pid:
+          type: ["integer", "null"]
+        publicUrl:
+          type: ["string", "null"]
+        connectorUrl:
+          type: ["string", "null"]
+        bearerToken:
+          type: ["string", "null"]
+        startedAt:
+          type: ["string", "null"]
+        lastError:
+          type: ["string", "null"]
+
+    LogLine:
+      type: object
+      required:
+        - timestamp
+        - stream
+        - message
+      properties:
+        timestamp:
+          type: string
+        stream:
+          type: string
+          enum: [stdout, stderr, system]
+        message:
+          type: string
+
+    LogBundle:
+      type: object
+      required:
+        - serverId
+        - lines
+      properties:
+        serverId:
+          type: integer
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/LogLine"
+
+    Summary:
+      type: object
+      required:
+        - totalServers
+        - runningServers
+        - stoppedServers
+        - erroredServers
+        - tunnelServers
+        - ngrokServers
+        - globalEnvVarCount
+      properties:
+        totalServers:
+          type: integer
+        runningServers:
+          type: integer
+        stoppedServers:
+          type: integer
+        erroredServers:
+          type: integer
+        tunnelServers:
+          type: integer
+        ngrokServers:
+          type: integer
+        globalEnvVarCount:
+          type: integer
+
+    EnvironmentInfo:
+      type: object
+      required:
+        - platform
+        - tunnelClientInstalled
+        - boundToLocalhost
+      properties:
+        platform:
+          type: string
+        tunnelClientInstalled:
+          type: boolean
+        tunnelClientVersion:
+          type: ["string", "null"]
+        ngrokInstalled:
+          type: boolean
+        boundToLocalhost:
+          type: boolean

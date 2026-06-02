@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "MCP Server Manager"
+version = "1.0.0"
+id = "artifacts/mcp-manager"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22942
+
+[services.development]
+run = "pnpm --filter @workspace/mcp-manager run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mcp-manager", "run", "build" ]
+publicDir = "artifacts/mcp-manager/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22942"
+BASE_PATH = "/"
