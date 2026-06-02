@@ -3,6 +3,7 @@ import { isNull } from "drizzle-orm";
 import os from "node:os";
 import { db, serversTable, envVarsTable } from "@workspace/db";
 import {
+  ensureTunnelClient,
   getRuntime,
   getTunnelClientPath,
   getTunnelClientVersion,
@@ -44,6 +45,15 @@ router.get("/summary", async (_req, res) => {
 });
 
 router.get("/environment", async (_req, res) => {
+  // Ensure the tunnel-client binary is provisioned (download + checksum verify
+  // on first use, no-op once cached) so the reported status reflects the real,
+  // ready-to-run state rather than whatever happened to be on PATH/cache.
+  let tunnelClientError: string | null = null;
+  try {
+    await ensureTunnelClient();
+  } catch (err) {
+    tunnelClientError = err instanceof Error ? err.message : String(err);
+  }
   const tunnelPath = await getTunnelClientPath();
   const tunnelVersion = tunnelPath ? await getTunnelClientVersion() : null;
   const ngrokInstalled = await isNgrokAvailable();
@@ -51,6 +61,7 @@ router.get("/environment", async (_req, res) => {
     platform: `${os.type()} ${os.release()} (${os.arch()})`,
     tunnelClientInstalled: !!tunnelPath,
     tunnelClientVersion: tunnelVersion,
+    tunnelClientError,
     ngrokInstalled,
     boundToLocalhost: /^(127\.|::1$|localhost$)/.test(
       process.env["HOST"] ?? "127.0.0.1",

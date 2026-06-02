@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { resumeServers } from "./lib/manager";
+import { ensureTunnelClient, resumeServers } from "./lib/manager";
 
 const rawPort = process.env["PORT"];
 
@@ -39,4 +39,23 @@ app.listen(port, host, (err) => {
   resumeServers().catch((resumeErr) => {
     logger.error({ err: resumeErr }, "Failed to resume servers on startup");
   });
+
+  // Provision the OpenAI Secure MCP Tunnel client on startup so tunnel mode is
+  // ready (and the Environment page reports it installed) without waiting for
+  // the first server start. Best-effort: failures are logged, not fatal, and
+  // the binary is re-attempted on demand from the connection routes.
+  ensureTunnelClient((message) => logger.info(message))
+    .then((binPath) => {
+      if (binPath) {
+        logger.info({ binPath }, "tunnel-client ready");
+      } else {
+        logger.warn("tunnel-client is not available for this platform");
+      }
+    })
+    .catch((provisionErr) => {
+      logger.error(
+        { err: provisionErr },
+        "Failed to provision tunnel-client on startup",
+      );
+    });
 });
