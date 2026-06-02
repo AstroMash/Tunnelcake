@@ -1,10 +1,12 @@
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { type Server as HttpServer } from "node:http";
-import { writeFile, mkdir, chmod } from "node:fs/promises";
+import { writeFile, mkdir, chmod, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { createHash } from "node:crypto";
+import AdmZip from "adm-zip";
 import express from "express";
 import yaml from "js-yaml";
 import { eq, isNull } from "drizzle-orm";
@@ -27,6 +29,12 @@ const execFileAsync = promisify(execFile);
 
 export type ProcessState = "stopped" | "starting" | "running" | "error";
 export type ConnectionMode = "none" | "tunnel" | "ngrok";
+export type TunnelHealth =
+  | "unknown"
+  | "starting"
+  | "healthy"
+  | "ready"
+  | "unhealthy";
 
 export interface LogLine {
   timestamp: string;
@@ -44,12 +52,14 @@ interface Runtime {
   bearerToken: string | null;
   startedAt: string | null;
   lastError: string | null;
+  tunnelHealth: TunnelHealth;
   logs: LogLine[];
   child: ChildProcess | null;
   bridge: HttpServer | null;
   ngrokListener: { close: () => Promise<void> } | null;
   stdioTransport: StdioClientTransport | null;
   activeSse: SSEServerTransport | null;
+  healthPoll: ReturnType<typeof setInterval> | null;
 }
 
 const MAX_LOGS = 500;
@@ -68,12 +78,14 @@ export function getRuntime(serverId: number): Runtime {
       bearerToken: null,
       startedAt: null,
       lastError: null,
+      tunnelHealth: "unknown",
       logs: [],
       child: null,
       bridge: null,
       ngrokListener: null,
       stdioTransport: null,
       activeSse: null,
+      healthPoll: null,
     };
     runtimes.set(serverId, rt);
   }
@@ -153,44 +165,169 @@ export async function getTunnelClientPath(): Promise<string | null> {
   return null;
 }
 
-// Resolve the download URL for the current OS/arch. The release base is
-// configurable to avoid hardcoding an unverified URL; an explicit full URL
-// always wins.
-function tunnelClientDownloadUrl(): string | null {
-  const explicit = process.env["TUNNEL_CLIENT_DOWNLOAD_URL"];
-  if (explicit) return explicit;
-  const base = process.env["TUNNEL_CLIENT_RELEASE_BASE"];
-  if (!base) return null;
+// The GitHub repository that publishes tunnel-client release binaries.
+// Overridable so the default does not become a hard dependency on a single
+// upstream location.
+function tunnelClientRepo(): string {
+  return process.env["TUNNEL_CLIENT_GITHUB_REPO"] ?? "openai/tunnel-client";
+}
+
+// The release asset infix for the current OS/arch, e.g. "linux-amd64".
+function tunnelClientPlatformInfix(): string | null {
   const platform = process.platform;
   if (platform !== "linux" && platform !== "darwin") return null;
-  const osPart = platform === "darwin" ? "darwin" : "linux";
-  const archPart = process.arch === "arm64" ? "arm64" : "amd64";
-  return `${base.replace(/\/$/, "")}/tunnel-client-${osPart}-${archPart}`;
+  const arch = process.arch === "arm64" ? "arm64" : "amd64";
+  return `${platform}-${arch}`;
+}
+
+interface GithubAsset {
+  name: string;
+  browser_download_url: string;
+}
+
+// Resolve the release asset (and its checksums file) for this OS/arch from the
+// latest GitHub release. Returns null when the platform is unsupported.
+async function resolveTunnelClientAsset(): Promise<{
+  asset: GithubAsset;
+  sumsUrl: string | null;
+} | null> {
+  const infix = tunnelClientPlatformInfix();
+  if (!infix) return null;
+
+  const repo = tunnelClientRepo();
+  const apiUrl = `https://api.github.com/repos/${repo}/releases/latest`;
+  const headers: Record<string, string> = {
+    accept: "application/vnd.github+json",
+    "user-agent": "mcp-server-manager",
+  };
+  const token = process.env["GITHUB_TOKEN"];
+  if (token) headers["authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(apiUrl, { headers });
+  if (!res.ok) {
+    throw new Error(
+      `Failed to query GitHub releases for ${repo}: HTTP ${res.status} ${res.statusText}`,
+    );
+  }
+  const release = (await res.json()) as { assets?: GithubAsset[] };
+  const assets = release.assets ?? [];
+  const asset = assets.find(
+    (a) => a.name.includes(infix) && a.name.endsWith(".zip"),
+  );
+  if (!asset) {
+    throw new Error(
+      `No tunnel-client release asset found for ${infix} in ${repo}`,
+    );
+  }
+  const sums = assets.find((a) => a.name === "SHA256SUMS.txt");
+  return { asset, sumsUrl: sums?.browser_download_url ?? null };
+}
+
+async function fetchExpectedSha256(
+  sumsUrl: string,
+  assetName: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(sumsUrl);
+    if (!res.ok) return null;
+    const text = await res.text();
+    for (const line of text.split(/\r?\n/)) {
+      const [sum, rawName] = line.trim().split(/\s+/);
+      if (!sum || !rawName) continue;
+      // Normalize common checksum name formats: "*filename" (binary mode)
+      // and "./filename" path prefixes.
+      const name = rawName.replace(/^\*/, "").replace(/^\.\//, "");
+      if (name === assetName) return sum.toLowerCase();
+    }
+  } catch {
+    /* ignore — verification is best-effort when sums are unavailable */
+  }
+  return null;
 }
 
 // Ensure the tunnel-client binary is available. Resolution order: configured
-// path / PATH / cache; otherwise download the OS-specific binary on first use
-// and cache it with executable permissions.
+// path (TUNNEL_CLIENT_PATH) / PATH / cache; otherwise download it on first use.
+// By default the latest release zip is resolved from GitHub, its SHA-256
+// verified against the published SHA256SUMS.txt, then the binary is extracted
+// and cached with executable permissions. TUNNEL_CLIENT_DOWNLOAD_URL forces a
+// direct raw-binary download (no extraction) for air-gapped/custom mirrors.
 export async function ensureTunnelClient(
   onLog?: (message: string) => void,
 ): Promise<string | null> {
   const existing = await getTunnelClientPath();
   if (existing) return existing;
 
-  const url = tunnelClientDownloadUrl();
-  if (!url) return null;
-
   const dest = tunnelClientCachePath();
-  onLog?.(`Downloading tunnel-client from ${url}`);
-  const res = await fetch(url);
+  await mkdir(tunnelClientCacheDir(), { recursive: true });
+
+  // Explicit override: treat the URL as a direct, ready-to-run binary.
+  const explicit = process.env["TUNNEL_CLIENT_DOWNLOAD_URL"];
+  if (explicit) {
+    onLog?.(`Downloading tunnel-client from ${explicit}`);
+    const res = await fetch(explicit);
+    if (!res.ok) {
+      throw new Error(
+        `Failed to download tunnel-client: HTTP ${res.status} ${res.statusText}`,
+      );
+    }
+    await writeFile(dest, Buffer.from(await res.arrayBuffer()));
+    await chmod(dest, 0o755);
+    onLog?.(`Cached tunnel-client at ${dest}`);
+    return dest;
+  }
+
+  // Default: resolve the latest GitHub release asset for this platform.
+  const resolved = await resolveTunnelClientAsset();
+  if (!resolved) return null;
+  const { asset, sumsUrl } = resolved;
+
+  onLog?.(`Downloading ${asset.name} from ${tunnelClientRepo()} releases`);
+  const res = await fetch(asset.browser_download_url);
   if (!res.ok) {
     throw new Error(
       `Failed to download tunnel-client: HTTP ${res.status} ${res.statusText}`,
     );
   }
-  const buf = Buffer.from(await res.arrayBuffer());
-  await mkdir(tunnelClientCacheDir(), { recursive: true });
-  await writeFile(dest, buf);
+  const zipBuf = Buffer.from(await res.arrayBuffer());
+
+  // Verify the archive against the published checksum. This is the default
+  // path for downloading an executable, so it must fail closed: a missing
+  // SHA256SUMS.txt or a missing/mismatched entry aborts the install.
+  if (!sumsUrl) {
+    throw new Error(
+      `tunnel-client release for ${tunnelClientRepo()} has no SHA256SUMS.txt; refusing to install unverified binary`,
+    );
+  }
+  const expected = await fetchExpectedSha256(sumsUrl, asset.name);
+  if (!expected) {
+    throw new Error(
+      `No SHA-256 checksum entry found for ${asset.name}; refusing to install unverified binary`,
+    );
+  }
+  const actual = createHash("sha256").update(zipBuf).digest("hex");
+  if (actual !== expected) {
+    throw new Error(
+      `tunnel-client checksum mismatch for ${asset.name} (expected ${expected}, got ${actual})`,
+    );
+  }
+  onLog?.("Verified tunnel-client SHA-256 checksum");
+
+  // Extract the binary entry from the zip into the cache.
+  const zip = new AdmZip(zipBuf);
+  const entry = zip
+    .getEntries()
+    .find(
+      (e) =>
+        !e.isDirectory &&
+        (path.basename(e.entryName) === "tunnel-client" ||
+          path.basename(e.entryName) === "tunnel-client.exe"),
+    );
+  if (!entry) {
+    throw new Error(
+      `tunnel-client binary not found inside ${asset.name}`,
+    );
+  }
+  await writeFile(dest, entry.getData());
   await chmod(dest, 0o755);
   onLog?.(`Cached tunnel-client at ${dest}`);
   return dest;
@@ -231,7 +368,18 @@ export function serializeRuntime(rt: Runtime) {
     bearerToken: rt.bearerToken,
     startedAt: rt.startedAt,
     lastError: rt.lastError,
+    tunnelHealth: rt.tunnelHealth,
   };
+}
+
+// process.env is Record<string, string | undefined>; the MCP stdio transport
+// requires a clean string map. Drop undefined values.
+function inheritedStringEnv(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (typeof v === "string") out[k] = v;
+  }
+  return out;
 }
 
 async function startNone(
@@ -287,7 +435,7 @@ async function startTunnel(
   const bin = await ensureTunnelClient((m) => appendLog(rt, "system", m));
   if (!bin) {
     throw new Error(
-      "tunnel-client binary not found. Install the OpenAI Secure MCP Tunnel client on PATH, set TUNNEL_CLIENT_PATH, or configure TUNNEL_CLIENT_DOWNLOAD_URL / TUNNEL_CLIENT_RELEASE_BASE to download it automatically.",
+      "tunnel-client binary is unavailable for this platform. Install the OpenAI Secure MCP Tunnel client on PATH, set TUNNEL_CLIENT_PATH, or set TUNNEL_CLIENT_DOWNLOAD_URL to a direct binary URL.",
     );
   }
   const apiKey = tunnel.apiKey ? decryptSecret(tunnel.apiKey) : "";
@@ -311,15 +459,33 @@ async function startTunnel(
   await writeFile(profilePath, yaml.dump(profile), "utf8");
   appendLog(rt, "system", `Wrote tunnel profile to ${profilePath}`);
 
-  const child = spawn(bin, ["run", "--profile-file", profilePath], {
-    env: {
-      ...process.env,
-      ...env,
-      CONTROL_PLANE_TUNNEL_ID: tunnel.tunnelId,
-      CONTROL_PLANE_API_KEY: apiKey,
+  // Bind the tunnel-client health server to a random loopback port (the default
+  // 127.0.0.1:8080 would collide with this API) and have it write the resolved
+  // health URL to a file so we can poll /readyz and /healthz.
+  const healthUrlFile = path.join(profileDir, "health.url");
+  await rm(healthUrlFile, { force: true }).catch(() => undefined);
+
+  const child = spawn(
+    bin,
+    [
+      "run",
+      "--profile-file",
+      profilePath,
+      "--health.listen-addr",
+      "127.0.0.1:0",
+      "--health.url-file",
+      healthUrlFile,
+    ],
+    {
+      env: {
+        ...process.env,
+        ...env,
+        CONTROL_PLANE_TUNNEL_ID: tunnel.tunnelId,
+        CONTROL_PLANE_API_KEY: apiKey,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
     },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  );
   rt.child = child;
   rt.pid = child.pid ?? null;
   rt.connectorUrl = tunnel.uiUrl ?? null;
@@ -332,6 +498,8 @@ async function startTunnel(
   });
   child.on("exit", (code, signal) => {
     appendLog(rt, "system", `tunnel-client exited (code=${code} signal=${signal})`);
+    stopHealthPolling(rt);
+    rt.tunnelHealth = "unknown";
     if (rt.state !== "stopped") {
       rt.state = code === 0 ? "stopped" : "error";
       if (code !== 0 && !rt.lastError) {
@@ -342,6 +510,68 @@ async function startTunnel(
     rt.child = null;
   });
   rt.state = "running";
+  rt.tunnelHealth = "starting";
+  startHealthPolling(rt, healthUrlFile);
+}
+
+// Poll the tunnel-client health server. It exposes /readyz (ready to serve
+// traffic) and /healthz (process is alive) on the loopback address written to
+// healthUrlFile. We surface "ready" / "healthy" / "unhealthy" on the runtime.
+function startHealthPolling(rt: Runtime, healthUrlFile: string): void {
+  stopHealthPolling(rt);
+  let baseUrl: string | null = null;
+  // Capture the interval handle this closure owns. A probe is async and may
+  // still be in flight when stopHealthPolling() clears rt.healthPoll (or a
+  // restart installs a new one); guard every mutation so a stale probe cannot
+  // overwrite the health of a stopped or restarted runtime.
+  const isCurrent = () => rt.healthPoll === handle;
+  const handle: ReturnType<typeof setInterval> = setInterval(() => {
+    void (async () => {
+      try {
+        if (!baseUrl) {
+          if (!existsSync(healthUrlFile)) return;
+          const raw = (await readFile(healthUrlFile, "utf8")).trim();
+          if (!raw || !isCurrent()) return;
+          baseUrl = raw.replace(/\/$/, "");
+          appendLog(rt, "system", `tunnel-client health endpoint: ${baseUrl}`);
+        }
+        const ready = await probeHealth(`${baseUrl}/readyz`);
+        if (!isCurrent()) return;
+        if (ready) {
+          if (rt.tunnelHealth !== "ready") {
+            appendLog(rt, "system", "tunnel-client is ready");
+          }
+          rt.tunnelHealth = "ready";
+          return;
+        }
+        const healthy = await probeHealth(`${baseUrl}/healthz`);
+        if (!isCurrent()) return;
+        rt.tunnelHealth = healthy ? "healthy" : "unhealthy";
+      } catch {
+        if (isCurrent()) rt.tunnelHealth = "unhealthy";
+      }
+    })();
+  }, 2000);
+  rt.healthPoll = handle;
+}
+
+function stopHealthPolling(rt: Runtime): void {
+  if (rt.healthPoll) {
+    clearInterval(rt.healthPoll);
+    rt.healthPoll = null;
+  }
+}
+
+async function probeHealth(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function startNgrok(
@@ -432,7 +662,10 @@ async function startStdio(
   const stdioTransport = new StdioClientTransport({
     command,
     args,
-    env: { ...env },
+    // Inherit the parent environment (PATH, HOME, etc.) so standard commands
+    // like `uvx mcp-pfsense` resolve correctly, then layer the per-server env
+    // on top. Matches startNone/startTunnel behavior.
+    env: { ...inheritedStringEnv(), ...env },
     stderr: "pipe",
   });
   stdioTransport.onmessage = (msg) => {
@@ -602,6 +835,9 @@ export async function stopServer(serverId: number) {
   rt.state = "stopped";
   appendLog(rt, "system", "Stopping server");
   await setRunningFlag(serverId, false).catch(() => undefined);
+
+  stopHealthPolling(rt);
+  rt.tunnelHealth = "unknown";
 
   if (rt.activeSse) {
     try {

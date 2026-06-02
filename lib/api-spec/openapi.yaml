@@ -691,6 +691,20 @@ components:
           type: ["string", "null"]
         lastError:
           type: ["string", "null"]
+        tunnelHealth:
+          $ref: "#/components/schemas/TunnelHealth"
+
+    TunnelHealth:
+      type: string
+      description: >
+        Live health of the tunnel-client process (tunnel mode only), derived
+        from polling its /readyz and /healthz endpoints.
+      enum:
+        - unknown
+        - starting
+        - healthy
+        - ready
+        - unhealthy
 
     LogLine:
       type: object

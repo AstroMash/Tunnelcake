@@ -131,6 +131,21 @@ export interface NgrokConfigInput {
   rotateBearerToken?: boolean;
 }
 
+/**
+ * Live health of the tunnel-client process (tunnel mode only), derived from polling its /readyz and /healthz endpoints.
+
+ */
+export type TunnelHealth = typeof TunnelHealth[keyof typeof TunnelHealth];
+
+
+export const TunnelHealth = {
+  unknown: 'unknown',
+  starting: 'starting',
+  healthy: 'healthy',
+  ready: 'ready',
+  unhealthy: 'unhealthy',
+} as const;
+
 export interface RuntimeStatus {
   serverId: number;
   state: ProcessState;
@@ -147,6 +162,7 @@ export interface RuntimeStatus {
   startedAt?: string | null;
   /** @nullable */
   lastError?: string | null;
+  tunnelHealth?: TunnelHealth;
 }
 
 export type LogLineStream = typeof LogLineStream[keyof typeof LogLineStream];

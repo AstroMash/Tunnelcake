@@ -7,6 +7,7 @@
  */
 import type { ConnectionMode } from './connectionMode';
 import type { ProcessState } from './processState';
+import type { TunnelHealth } from './tunnelHealth';
 
 export interface RuntimeStatus {
   serverId: number;
@@ -24,4 +25,5 @@ export interface RuntimeStatus {
   startedAt?: string | null;
   /** @nullable */
   lastError?: string | null;
+  tunnelHealth?: TunnelHealth;
 }

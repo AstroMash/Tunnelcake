@@ -32,4 +32,5 @@ export * from './summary';
 export * from './tooManyRequestsResponse';
 export * from './tunnelConfig';
 export * from './tunnelConfigInput';
+export * from './tunnelHealth';
 export * from './unauthorizedResponse';

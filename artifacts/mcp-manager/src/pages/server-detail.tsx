@@ -84,6 +84,12 @@ export function ServerDetail() {
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-4">
             {server.name}
             <StatusBadge state={status?.state || server.state} />
+            {server.connectionMode === "tunnel" &&
+              isRunning &&
+              status?.tunnelHealth &&
+              status.tunnelHealth !== "unknown" && (
+                <TunnelHealthBadge health={status.tunnelHealth} />
+              )}
           </h1>
           <p className="text-sm font-mono text-muted-foreground mt-2">
             {server.command} {server.args?.join(" ")}
@@ -422,6 +428,30 @@ function ServerEnvVars({ serverId }: { serverId: number }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function TunnelHealthBadge({ health }: { health: string }) {
+  const colors: Record<string, string> = {
+    starting: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 animate-pulse",
+    healthy: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    ready: "bg-green-500/20 text-green-400 border-green-500/30",
+    unhealthy: "bg-red-500/20 text-red-400 border-red-500/30",
+  };
+  const dots: Record<string, string> = {
+    starting: "bg-yellow-400",
+    healthy: "bg-blue-400",
+    ready: "bg-green-400",
+    unhealthy: "bg-red-400",
+  };
+
+  return (
+    <div
+      className={`px-2.5 py-0.5 rounded-full text-xs font-medium border flex items-center gap-2 ${colors[health] || colors.starting}`}
+    >
+      <div className={`w-1.5 h-1.5 rounded-full ${dots[health] || dots.starting}`} />
+      {health.toUpperCase()}
+    </div>
   );
 }
 

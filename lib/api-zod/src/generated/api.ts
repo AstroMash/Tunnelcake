@@ -155,7 +155,8 @@ export const StartServerResponse = zod.object({
   "connectorUrl": zod.string().nullish(),
   "bearerToken": zod.string().nullish(),
   "startedAt": zod.string().nullish(),
-  "lastError": zod.string().nullish()
+  "lastError": zod.string().nullish(),
+  "tunnelHealth": zod.enum(['unknown', 'starting', 'healthy', 'ready', 'unhealthy']).optional().describe('Live health of the tunnel-client process (tunnel mode only), derived from polling its \/readyz and \/healthz endpoints.\n')
 })
 
 
@@ -175,7 +176,8 @@ export const StopServerResponse = zod.object({
   "connectorUrl": zod.string().nullish(),
   "bearerToken": zod.string().nullish(),
   "startedAt": zod.string().nullish(),
-  "lastError": zod.string().nullish()
+  "lastError": zod.string().nullish(),
+  "tunnelHealth": zod.enum(['unknown', 'starting', 'healthy', 'ready', 'unhealthy']).optional().describe('Live health of the tunnel-client process (tunnel mode only), derived from polling its \/readyz and \/healthz endpoints.\n')
 })
 
 
@@ -195,7 +197,8 @@ export const GetServerStatusResponse = zod.object({
   "connectorUrl": zod.string().nullish(),
   "bearerToken": zod.string().nullish(),
   "startedAt": zod.string().nullish(),
-  "lastError": zod.string().nullish()
+  "lastError": zod.string().nullish(),
+  "tunnelHealth": zod.enum(['unknown', 'starting', 'healthy', 'ready', 'unhealthy']).optional().describe('Live health of the tunnel-client process (tunnel mode only), derived from polling its \/readyz and \/healthz endpoints.\n')
 })
 
 
