@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "PBs6xETR--s2nQZaNUXfT"
+uri = "file://artifacts/landing/public/og-image.png"
+type = "image"
+title = "Abstract dark cyan hero texture"
