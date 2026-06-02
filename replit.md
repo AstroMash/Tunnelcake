@@ -4,18 +4,18 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm start` (or `npx mcp-server-manager`) — local-first one-command launch: builds if needed, serves UI + API as one process on a free port, opens the browser
+- `pnpm --filter @workspace/api-server run dev` — run only the API server (dev)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- No database setup or env vars required. Data persists to `~/.mcp-server-manager/mcp-server-manager.db` (override with `MCP_DATA_DIR` / `MCP_DATABASE_PATH`).
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
 - API: Express 5
-- DB: PostgreSQL + Drizzle ORM
+- DB: SQLite via Node's built-in `node:sqlite` + Drizzle ORM (`sqlite-proxy` driver). No native modules, no `DATABASE_URL`.
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)

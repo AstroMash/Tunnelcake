@@ -1,2 +1,3 @@
 - [MCP Manager architecture](mcp-server-manager.md) — full-stack tool to manage stdio MCP servers + expose to ChatGPT via OpenAI tunnel or ngrok SSE; security & wiring gotchas.
 - [uv/uvx + tunnel-client](uv-uvx-environment.md) — uvx needs a Python module (only-system, no downloads); tunnel-client auto-downloaded+verified to ~/.mcp-server-manager/bin.
+- [Local-first SQLite storage](local-first-sqlite.md) — node:sqlite via Drizzle sqlite-proxy (no native build, no DATABASE_URL); proxy-row-shape gotcha; npx launcher serves UI+API as one process.

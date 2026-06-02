@@ -1,9 +1,9 @@
-import { pgTable, text, integer } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { serversTable } from "./servers";
 
-export const tunnelConfigsTable = pgTable("tunnel_configs", {
+export const tunnelConfigsTable = sqliteTable("tunnel_configs", {
   serverId: integer("server_id")
     .primaryKey()
     .references(() => serversTable.id, { onDelete: "cascade" }),

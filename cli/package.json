@@ -1,0 +1,24 @@
+{
+  "name": "mcp-server-manager",
+  "version": "0.1.0",
+  "description": "Local-first manager for MCP stdio servers, exposed to ChatGPT via the OpenAI Secure MCP Tunnel or an ngrok SSE proxy.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "mcp-server-manager": "launch.mjs"
+  },
+  "files": [
+    "launch.mjs",
+    "dist"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@ngrok/ngrok": "^1.7.0"
+  },
+  "scripts": {
+    "bundle": "node ./build.mjs",
+    "prepack": "node ./build.mjs"
+  }
+}

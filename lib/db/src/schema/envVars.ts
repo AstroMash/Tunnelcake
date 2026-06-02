@@ -1,10 +1,10 @@
-import { pgTable, text, serial, integer } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { serversTable } from "./servers";
 
-export const envVarsTable = pgTable("env_vars", {
-  id: serial("id").primaryKey(),
+export const envVarsTable = sqliteTable("env_vars", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
   serverId: integer("server_id").references(() => serversTable.id, {
     onDelete: "cascade",
   }),
