@@ -66,6 +66,24 @@ uri = "file://attached_assets/tc_v2/d_monoline_t.png"
 type = "image"
 title = "monoline T icon"
 
+[[generated]]
+id = "bSsn1niC82Cwu2uD463Kk"
+uri = "file://attached_assets/tc_final/icon_hero.png"
+type = "image"
+title = "neon portal hero icon"
+
+[[generated]]
+id = "Z0snILzMEnFBmngsoxNrC"
+uri = "file://attached_assets/tc_final/icon_favicon.png"
+type = "image"
+title = "neon portal favicon"
+
+[[generated]]
+id = "KW_3OY1GUwtmmUj_Frgod"
+uri = "file://attached_assets/tc_final/icon_mono.png"
+type = "image"
+title = "neon portal mono icon"
+
 [[outputs]]
 id = "0WSTxv4NPfwNXFrBQ-gTH"
 uri = "file://attached_assets/name_concepts/burrow.png"
