@@ -30,6 +30,18 @@ uri = "file://attached_assets/name_concepts/gopher.png"
 type = "image"
 title = "gopher tunneler mascot"
 
+[[generated]]
+id = "WU-DuVArbAoccQoeeHHpz"
+uri = "file://attached_assets/tunnelcake/logo_icon.png"
+type = "image"
+title = "tunnelcake logo icon"
+
+[[generated]]
+id = "c6PiaP3t3MAeQ3Bsvwz3Y"
+uri = "file://attached_assets/tunnelcake/mascot.png"
+type = "image"
+title = "tunnelcake mascot"
+
 [[outputs]]
 id = "0WSTxv4NPfwNXFrBQ-gTH"
 uri = "file://attached_assets/name_concepts/burrow.png"
@@ -53,3 +65,15 @@ id = "yZbUjkFymiqFHB8CMWuCv"
 uri = "file://attached_assets/name_concepts/gopher.png"
 type = "image"
 title = "Gopher — “Goes-fer your tools. Digs the tunnels.”"
+
+[[outputs]]
+id = "YaOsFmA9U17XA9C6RzJqS"
+uri = "file://attached_assets/tunnelcake/logo_icon.png"
+type = "image"
+title = "Tunnelcake — App Icon"
+
+[[outputs]]
+id = "3ginq1fV85SMI1SVQaN6S"
+uri = "file://attached_assets/tunnelcake/mascot.png"
+type = "image"
+title = "Tunnelcake — Mascot"
