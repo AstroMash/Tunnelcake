@@ -38,7 +38,7 @@ export function Dashboard() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Security Warning</AlertTitle>
           <AlertDescription>
-            The MCP Manager is not bound to localhost. It may be accessible from the public internet.
+            Tunnelcake is not bound to localhost. It may be accessible from the public internet.
           </AlertDescription>
         </Alert>
       )}

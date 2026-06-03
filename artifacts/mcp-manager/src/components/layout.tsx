@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { Server, Settings, Terminal } from "lucide-react";
+import { Server, Settings } from "lucide-react";
+import { TunnelMark } from "./tunnel-mark";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
@@ -14,8 +15,8 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       {/* Sidebar */}
       <div className="w-64 border-r border-border bg-card flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-border">
-          <Terminal className="w-5 h-5 text-primary mr-3" />
-          <span className="font-mono font-bold tracking-tight text-primary">MCP MANAGER</span>
+          <TunnelMark className="w-6 h-6 mr-3" />
+          <span className="font-mono font-bold tracking-tight text-primary">TUNNELCAKE</span>
         </div>
         <div className="flex-1 overflow-y-auto py-4">
           <nav className="space-y-1 px-3">

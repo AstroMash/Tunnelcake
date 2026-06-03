@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { Copy, Check, Terminal, Shield, Zap, Server, Github, ArrowRight, Activity, Network } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { TunnelMark } from "@/components/tunnel-mark";
 
 export default function Home() {
   const [copied, setCopied] = useState(false);
@@ -32,8 +33,8 @@ export default function Home() {
         <nav className="border-b border-border/50 bg-background/80 backdrop-blur-md sticky top-0 z-50">
           <div className="container mx-auto px-6 h-16 flex items-center justify-between">
             <div className="flex items-center gap-2 font-mono font-bold tracking-tight text-lg text-primary">
-              <Terminal className="w-5 h-5" />
-              <span>mcp-manager</span>
+              <TunnelMark className="w-6 h-6" />
+              <span>Tunnelcake</span>
             </div>
             <div>
               <a href="https://github.com/mcp-server-manager/mcp-server-manager" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm font-medium">
@@ -127,7 +128,7 @@ export default function Home() {
               <div className="flex-1">
                 <h2 className="text-3xl md:text-4xl font-bold mb-6">Connect to the outside world, securely.</h2>
                 <p className="text-lg text-muted-foreground mb-8">
-                  stdIO servers are great for local testing, but deploying them can be a headache. MCP Server Manager includes built-in tunneling so your cloud LLMs can securely access your local tools.
+                  stdIO servers are great for local testing, but deploying them can be a headache. Tunnelcake includes built-in tunneling so your cloud LLMs can securely access your local tools.
                 </p>
                 
                 <div className="space-y-6">
@@ -210,8 +211,8 @@ export default function Home() {
         <footer className="border-t border-border py-12 px-6 bg-background">
           <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2 font-mono">
-              <Terminal className="w-4 h-4" />
-              mcp-manager
+              <TunnelMark className="w-5 h-5" />
+              Tunnelcake
             </div>
             <p>Built for developers, by developers.</p>
           </div>
