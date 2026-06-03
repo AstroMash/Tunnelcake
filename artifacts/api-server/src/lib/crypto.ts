@@ -23,7 +23,7 @@ function deriveKey(raw: string): Buffer {
 function keyFilePath(): string {
   const dir =
     process.env["MCP_DATA_DIR"] ??
-    path.join(homedir(), ".mcp-server-manager");
+    path.join(homedir(), ".tunnelcake");
   return path.join(dir, "master.key");
 }
 

@@ -1,4 +1,4 @@
-# MCP Server Manager
+# Tunnelcake
 
 A local-first tool to manage your [Model Context Protocol](https://modelcontextprotocol.io)
 (MCP) stdio servers and expose them to ChatGPT — either privately through the
@@ -16,7 +16,7 @@ built-in SQLite, so there are no native modules to compile).
 Run it with a single command — no clone, no build, no configuration:
 
 ```bash
-npx mcp-server-manager
+npx tunnelcake
 ```
 
 This downloads the prebuilt app, starts a local server on an available port, and
@@ -38,12 +38,12 @@ command.
 
 All local state lives in a per-user directory:
 
-- **macOS / Linux:** `~/.mcp-server-manager/`
-- **Windows:** `%USERPROFILE%\.mcp-server-manager\`
+- **macOS / Linux:** `~/.tunnelcake/`
+- **Windows:** `%USERPROFILE%\.tunnelcake\`
 
 Inside it you'll find:
 
-- `mcp-server-manager.db` — the SQLite database (your servers, env vars, and
+- `tunnelcake.db` — the SQLite database (your servers, env vars, and
   connection configs). It is created automatically on first run and persists
   across restarts.
 - `master.key` — the auto-generated key used to encrypt secrets at rest
@@ -57,7 +57,7 @@ To start completely fresh, stop the app and delete that directory.
 Everything works with zero configuration. The following environment variables
 are optional:
 
-- `MCP_DATA_DIR` — override the data directory (default: `~/.mcp-server-manager`).
+- `MCP_DATA_DIR` — override the data directory (default: `~/.tunnelcake`).
 - `MCP_DATABASE_PATH` — override the database file path directly.
 - `MCP_MASTER_KEY` — provide your own 32-byte (64-char hex) encryption key
   instead of the auto-generated one.

@@ -5,7 +5,7 @@
 //
 // This script requires pnpm + the monorepo and runs at publish time (`prepack`)
 // or when a contributor runs `pnpm start`. It is NOT run on the consumer's
-// machine — `npx mcp-server-manager` ships the prebuilt ./dist.
+// machine — `npx tunnelcake` ships the prebuilt ./dist.
 import { spawnSync } from "node:child_process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";

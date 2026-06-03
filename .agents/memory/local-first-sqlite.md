@@ -5,8 +5,11 @@ description: Durable decisions/gotchas for SQLite persistence and the publishabl
 
 # Local-first SQLite storage
 
-Persistence is a single SQLite file in a per-user dir (`~/.mcp-server-manager`,
-override via `MCP_DATA_DIR` / `MCP_DATABASE_PATH`). No `DATABASE_URL`, no
+Product name is **Tunnelcake** (npm package + CLI command `tunnelcake`, dir
+`artifacts/mcp-manager` and pkg `@workspace/mcp-manager` kept as internal infra).
+Persistence is a single SQLite file in a per-user dir (`~/.tunnelcake/tunnelcake.db`,
+override via `MCP_DATA_DIR` / `MCP_DATABASE_PATH` — the `MCP_*` env var names are
+generic Model-Context-Protocol config, kept on purpose). No `DATABASE_URL`, no
 Postgres, no native compilation.
 
 ## Why node:sqlite via Drizzle `sqlite-proxy`
@@ -32,7 +35,7 @@ and a local single-file DB doesn't need a migration history. `PRAGMA
 foreign_keys = ON` is required for ON DELETE CASCADE.
 
 ## The npx package is a separate, self-contained package (`cli/`)
-`npx mcp-server-manager` must work on a clean machine with **only Node** — it
+`npx tunnelcake` must work on a clean machine with **only Node** — it
 cannot run the pnpm workspace. So the publishable package lives in `cli/` (its
 own public package.json, no `private`, no pnpm-only `preinstall`), ships the
 **prebuilt** server + web bundles in `cli/dist`, and its launcher is pure Node

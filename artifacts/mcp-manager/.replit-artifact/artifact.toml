@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "MCP Server Manager"
+title = "Tunnelcake"
 version = "1.0.0"
 id = "artifacts/mcp-manager"
 router = "path"

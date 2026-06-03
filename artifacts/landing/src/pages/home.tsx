@@ -10,7 +10,7 @@ export default function Home() {
   const copyCommand = async () => {
     try {
       if (!navigator.clipboard?.writeText) return;
-      await navigator.clipboard.writeText("npx mcp-server-manager");
+      await navigator.clipboard.writeText("npx tunnelcake");
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -37,7 +37,7 @@ export default function Home() {
               <span>Tunnelcake</span>
             </div>
             <div>
-              <a href="https://github.com/mcp-server-manager/mcp-server-manager" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm font-medium">
+              <a href="https://github.com/tunnelcake/tunnelcake" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm font-medium">
                 <Github className="w-4 h-4" />
                 <span>GitHub</span>
               </a>
@@ -67,7 +67,7 @@ export default function Home() {
               <div className="flex items-center justify-center w-8 h-8 rounded bg-background border border-border">
                 <Terminal className="w-4 h-4 text-primary" />
               </div>
-              <code className="font-mono text-sm text-foreground flex-1 text-left">npx mcp-server-manager</code>
+              <code className="font-mono text-sm text-foreground flex-1 text-left">npx tunnelcake</code>
               <Button 
                 variant="secondary" 
                 size="sm" 
@@ -194,14 +194,14 @@ export default function Home() {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button asChild size="lg" className="gap-2 w-full sm:w-auto font-medium text-base h-12 px-8">
-                <a href="https://github.com/mcp-server-manager/mcp-server-manager" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/tunnelcake/tunnelcake" target="_blank" rel="noopener noreferrer">
                   <Github className="w-5 h-5" />
                   View on GitHub
                 </a>
               </Button>
               <Button size="lg" variant="outline" className="gap-2 w-full sm:w-auto font-mono text-base h-12 px-8 border-primary/20 hover:bg-primary/10 hover:text-primary transition-colors" onClick={copyCommand}>
                 {copied ? <Check className="w-5 h-5" /> : <Terminal className="w-5 h-5" />}
-                {copied ? "Copied" : "npx mcp-server-manager"}
+                {copied ? "Copied" : "npx tunnelcake"}
               </Button>
             </div>
           </div>

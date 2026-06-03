@@ -4,12 +4,12 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Run & Operate
 
-- `pnpm start` (or `npx mcp-server-manager`) — local-first one-command launch: builds if needed, serves UI + API as one process on a free port, opens the browser
+- `pnpm start` (or `npx tunnelcake`) — local-first one-command launch: builds if needed, serves UI + API as one process on a free port, opens the browser
 - `pnpm --filter @workspace/api-server run dev` — run only the API server (dev)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- No database setup or env vars required. Data persists to `~/.mcp-server-manager/mcp-server-manager.db` (override with `MCP_DATA_DIR` / `MCP_DATABASE_PATH`).
+- No database setup or env vars required. Data persists to `~/.tunnelcake/tunnelcake.db` (override with `MCP_DATA_DIR` / `MCP_DATABASE_PATH`).
 
 ## Stack
 

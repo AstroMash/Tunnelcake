@@ -1,11 +1,11 @@
 {
-  "name": "mcp-server-manager",
+  "name": "tunnelcake",
   "version": "0.1.0",
   "description": "Local-first manager for MCP stdio servers, exposed to ChatGPT via the OpenAI Secure MCP Tunnel or an ngrok SSE proxy.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "mcp-server-manager": "launch.mjs"
+    "tunnelcake": "launch.mjs"
   },
   "files": [
     "launch.mjs",

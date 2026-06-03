@@ -16,8 +16,8 @@ which looks like an app bug rather than a missing dependency.
 # Provisioning the tunnel-client binary
 
 The tunnel-client binary is fetched on demand, verified by checksum, and cached
-outside the repo — so it does NOT persist to a fresh environment via source
-control.
+outside the repo (under `~/.tunnelcake/bin`) — so it does NOT persist to a fresh
+environment via source control.
 **Decision:** provision it deterministically at API-server startup (and on the
 Environment status request) by invoking the existing ensure routine, rather than
 relying on a manual one-off download or a Nix package.

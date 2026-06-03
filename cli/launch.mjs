@@ -2,7 +2,7 @@
 // Pure-Node launcher. No pnpm, no build step, no workspace assumptions.
 //
 // Two run modes, auto-detected:
-//   1. Published npm package (`npx mcp-server-manager`): runs the prebuilt
+//   1. Published npm package (`npx tunnelcake`): runs the prebuilt
 //      bundle shipped in ./dist (server + web), with @ngrok/ngrok resolved from
 //      this package's own dependencies.
 //   2. Monorepo / `pnpm start`: runs the in-place artifact builds so dynamic
@@ -26,7 +26,7 @@ const bundledServer = path.join(here, "dist/server/index.mjs");
 const bundledWeb = path.join(here, "dist/public");
 
 function log(msg) {
-  process.stdout.write(`[mcp-server-manager] ${msg}\n`);
+  process.stdout.write(`[tunnelcake] ${msg}\n`);
 }
 
 let serverEntry;
@@ -115,7 +115,7 @@ async function main() {
   child.on("exit", (code) => process.exit(code ?? 0));
 
   const dataDir =
-    process.env.MCP_DATA_DIR ?? path.join(homedir(), ".mcp-server-manager");
+    process.env.MCP_DATA_DIR ?? path.join(homedir(), ".tunnelcake");
   log(`Data is stored in ${dataDir}`);
   log(`Starting on ${url}`);
 

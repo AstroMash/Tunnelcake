@@ -13,14 +13,14 @@ import * as schema from "./schema";
  */
 function dataDir(): string {
   return (
-    process.env["MCP_DATA_DIR"] ?? path.join(homedir(), ".mcp-server-manager")
+    process.env["MCP_DATA_DIR"] ?? path.join(homedir(), ".tunnelcake")
   );
 }
 
 export function databaseFilePath(): string {
   return (
     process.env["MCP_DATABASE_PATH"] ??
-    path.join(dataDir(), "mcp-server-manager.db")
+    path.join(dataDir(), "tunnelcake.db")
   );
 }
 

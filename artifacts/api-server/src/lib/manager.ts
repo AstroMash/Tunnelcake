@@ -143,7 +143,7 @@ async function findExecutable(name: string): Promise<string | null> {
 
 function dataDir(): string {
   return (
-    process.env["MCP_DATA_DIR"] ?? path.join(homedir(), ".mcp-server-manager")
+    process.env["MCP_DATA_DIR"] ?? path.join(homedir(), ".tunnelcake")
   );
 }
 
@@ -198,7 +198,7 @@ async function resolveTunnelClientAsset(): Promise<{
   const apiUrl = `https://api.github.com/repos/${repo}/releases/latest`;
   const headers: Record<string, string> = {
     accept: "application/vnd.github+json",
-    "user-agent": "mcp-server-manager",
+    "user-agent": "tunnelcake",
   };
   const token = process.env["GITHUB_TOKEN"];
   if (token) headers["authorization"] = `Bearer ${token}`;
@@ -443,7 +443,7 @@ async function startTunnel(
     throw new Error("Tunnel configuration is incomplete (missing tunnel ID or API key).");
   }
 
-  const profileDir = path.join(tmpdir(), "mcp-manager", `srv-${rt.serverId}`);
+  const profileDir = path.join(tmpdir(), "tunnelcake", `srv-${rt.serverId}`);
   await mkdir(profileDir, { recursive: true });
   const profilePath = path.join(profileDir, "profile.yaml");
   const profile = {
