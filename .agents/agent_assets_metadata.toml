@@ -1,8 +1,55 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "PBs6xETR--s2nQZaNUXfT"
 uri = "file://artifacts/landing/public/og-image.png"
 type = "image"
 title = "Abstract dark cyan hero texture"
+
+[[generated]]
+id = "G8n9ca5-FCbM7GpRuWXdZ"
+uri = "file://attached_assets/name_concepts/burrow.png"
+type = "image"
+title = "burrow mole mascot"
+
+[[generated]]
+id = "tzU2K7_SGCG9XHNZiV23b"
+uri = "file://attached_assets/name_concepts/plumbus.png"
+type = "image"
+title = "plumbus gadget mascot"
+
+[[generated]]
+id = "Pr6ugcgmzEfbnME12J9OK"
+uri = "file://attached_assets/name_concepts/mcpilot.png"
+type = "image"
+title = "mcpilot aviator gopher"
+
+[[generated]]
+id = "Zaz-DnWio4zAdgqa10kPn"
+uri = "file://attached_assets/name_concepts/gopher.png"
+type = "image"
+title = "gopher tunneler mascot"
+
+[[outputs]]
+id = "0WSTxv4NPfwNXFrBQ-gTH"
+uri = "file://attached_assets/name_concepts/burrow.png"
+type = "image"
+title = "Burrow — “Digs the tunnel so you don’t have to.”"
+
+[[outputs]]
+id = "E8nEBqVAYLrY9TBdbTpLa"
+uri = "file://attached_assets/name_concepts/plumbus.png"
+type = "image"
+title = "Plumbus — “Everyone has one. It just works.”"
+
+[[outputs]]
+id = "RlQk6QD7LG1BqKtbrYNox"
+uri = "file://attached_assets/name_concepts/mcpilot.png"
+type = "image"
+title = "MCPilot — “Your co-pilot for MCP servers.”"
+
+[[outputs]]
+id = "yZbUjkFymiqFHB8CMWuCv"
+uri = "file://attached_assets/name_concepts/gopher.png"
+type = "image"
+title = "Gopher — “Goes-fer your tools. Digs the tunnels.”"
