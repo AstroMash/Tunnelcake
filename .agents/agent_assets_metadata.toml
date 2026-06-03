@@ -42,6 +42,30 @@ uri = "file://attached_assets/tunnelcake/mascot.png"
 type = "image"
 title = "tunnelcake mascot"
 
+[[generated]]
+id = "xYzMAuEy5Pb3_TJ1FpIWK"
+uri = "file://attached_assets/tc_v2/a_neon_portal.png"
+type = "image"
+title = "neon portal icon"
+
+[[generated]]
+id = "vjuRY1nMPIHEhp7kwiCRA"
+uri = "file://attached_assets/tc_v2/b_layered_strata.png"
+type = "image"
+title = "layered strata icon"
+
+[[generated]]
+id = "dcfYAC7_SkYWUVcEtNFok"
+uri = "file://attached_assets/tc_v2/c_gradient_wormhole.png"
+type = "image"
+title = "gradient wormhole icon"
+
+[[generated]]
+id = "ZhuIx3KpzDbV3TDNqC3gq"
+uri = "file://attached_assets/tc_v2/d_monoline_t.png"
+type = "image"
+title = "monoline T icon"
+
 [[outputs]]
 id = "0WSTxv4NPfwNXFrBQ-gTH"
 uri = "file://attached_assets/name_concepts/burrow.png"
