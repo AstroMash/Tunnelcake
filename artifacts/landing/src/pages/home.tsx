@@ -37,7 +37,7 @@ export default function Home() {
               <span>Tunnelcake</span>
             </div>
             <div>
-              <a href="https://github.com/tunnelcake/tunnelcake" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm font-medium">
+              <a href="https://github.com/AstroMash/Tunnelcake" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 text-sm font-medium">
                 <Github className="w-4 h-4" />
                 <span>GitHub</span>
               </a>
@@ -194,7 +194,7 @@ export default function Home() {
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button asChild size="lg" className="gap-2 w-full sm:w-auto font-medium text-base h-12 px-8">
-                <a href="https://github.com/tunnelcake/tunnelcake" target="_blank" rel="noopener noreferrer">
+                <a href="https://github.com/AstroMash/Tunnelcake" target="_blank" rel="noopener noreferrer">
                   <Github className="w-5 h-5" />
                   View on GitHub
                 </a>
