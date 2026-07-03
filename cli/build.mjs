@@ -7,7 +7,7 @@
 // or when a contributor runs `pnpm start`. It is NOT run on the consumer's
 // machine — `npx tunnelcake` ships the prebuilt ./dist.
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -50,5 +50,20 @@ rmSync(distDir, { recursive: true, force: true });
 mkdirSync(distDir, { recursive: true });
 cpSync(serverSrc, path.join(distDir, "server"), { recursive: true });
 cpSync(webSrc, path.join(distDir, "public"), { recursive: true });
+
+// Sourcemaps are only useful for local debugging of the workspace build;
+// the published npm package ships plain, minified output, so drop them to
+// keep the install small.
+function removeSourcemaps(dir) {
+  for (const entry of readdirSync(dir)) {
+    const full = path.join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      removeSourcemaps(full);
+    } else if (entry.endsWith(".map")) {
+      rmSync(full);
+    }
+  }
+}
+removeSourcemaps(distDir);
 
 console.log(`[build] Bundled into ${distDir}`);

@@ -1,6 +1,6 @@
 {
   "name": "tunnelcake",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first manager for MCP stdio servers, exposed to ChatGPT via the OpenAI Secure MCP Tunnel or an ngrok SSE proxy.",
   "license": "MIT",
   "type": "module",
