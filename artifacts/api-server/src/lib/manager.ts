@@ -382,6 +382,20 @@ function inheritedStringEnv(): Record<string, string> {
   return out;
 }
 
+// tunnel-client's YAML profile only accepts a single shell command string per
+// MCP entry (mcp.commands[].command), not a separate argv array, so join
+// command+args into one string, POSIX-quoting any part that needs it.
+function shellQuote(part: string): string {
+  if (part.length > 0 && /^[A-Za-z0-9_\-./=:@%,]+$/.test(part)) {
+    return part;
+  }
+  return `'${part.replace(/'/g, `'\\''`)}'`;
+}
+
+function buildShellCommand(command: string, args: string[]): string {
+  return [command, ...args].map(shellQuote).join(" ");
+}
+
 async function startNone(
   rt: Runtime,
   command: string,
@@ -446,15 +460,34 @@ async function startTunnel(
   const profileDir = path.join(tmpdir(), "tunnelcake", `srv-${rt.serverId}`);
   await mkdir(profileDir, { recursive: true });
   const profilePath = path.join(profileDir, "profile.yaml");
+  // Schema is tunnel-client's own YAML profile format (config.fileConfig), NOT
+  // an ad-hoc shape: config_version/control_plane/mcp.commands (single shell
+  // command string per entry, bound to `channel: main`). There is no per-command
+  // `env` field in that schema; custom server env vars instead ride along on the
+  // tunnel-client process's own environment below (Go subprocess exec inherits
+  // the parent env), so they still reach the stdio MCP server it launches.
   const profile = {
-    servers: [
-      {
-        name: `mcp-server-${rt.serverId}`,
-        command,
-        args,
-        env,
-      },
-    ],
+    config_version: 1,
+    control_plane: {
+      base_url: "https://api.openai.com",
+      tunnel_id: tunnel.tunnelId,
+      api_key: "env:CONTROL_PLANE_API_KEY",
+    },
+    admin_ui: {
+      open_browser: false,
+    },
+    log: {
+      level: "info",
+      format: "json",
+    },
+    mcp: {
+      commands: [
+        {
+          channel: "main",
+          command: buildShellCommand(command, args),
+        },
+      ],
+    },
   };
   await writeFile(profilePath, yaml.dump(profile), "utf8");
   appendLog(rt, "system", `Wrote tunnel profile to ${profilePath}`);

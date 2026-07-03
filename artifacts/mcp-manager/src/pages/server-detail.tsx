@@ -41,8 +41,17 @@ export function ServerDetail() {
   const isRunning = status?.state === "running";
   const isStarting = status?.state === "starting";
 
+  // Keep fetching logs regardless of state (not just while running/starting):
+  // a crash flips state to "error" the same moment the final log lines (the
+  // actual failure reason) land, so gating the query on isRunning/isStarting
+  // could freeze the panel one poll short of showing why it died. Only the
+  // interval is conditional, to avoid polling forever once a server is idle.
   const { data: logs } = useGetServerLogs(id, {
-    query: { enabled: !!id && (isRunning || isStarting), refetchInterval: 2000, queryKey: getGetServerLogsQueryKey(id) }
+    query: {
+      enabled: !!id,
+      refetchInterval: isRunning || isStarting ? 2000 : false,
+      queryKey: getGetServerLogsQueryKey(id),
+    }
   });
 
   const startMutation = useStartServer();
@@ -229,8 +238,15 @@ export function ServerDetail() {
 
         <div>
           <Card className="h-full flex flex-col">
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Live Logs</CardTitle>
+              {logs && logs.lines.length > 0 && (
+                <CopyButton
+                  text={logs.lines
+                    .map((line) => `[${new Date(line.timestamp).toISOString()}] ${line.stream}: ${line.message}`)
+                    .join("\n")}
+                />
+              )}
             </CardHeader>
             <CardContent className="flex-1 min-h-[500px]">
               <div className="bg-[#0A0A0A] rounded-md border border-border p-4 h-full overflow-y-auto font-mono text-xs flex flex-col gap-1">
